@@ -28,7 +28,7 @@ quality_list             = [ 'OverallQual', 'OverallCond', 'HeatingQC', 'YearBui
 
 
 MSSub_map    = { 20:0, 30:1, 40:2, 45:3, 50:4, 60:5, 70:6, 75:7, 80:8, 85:9, 90:10, 120:11, 150:12, 160:13, 180:14, 190:15 }
-MSZoning_map = { 'A':0, 'C': 1, 'C (all)':1, 'FV':2, 'I':3, 'RH':4, 'RL':5, 'RP':6, 'RM':7 } # MSZoning
+MSZoning_map = { 'A':0, 'C': 1, 'C (all)':1, 'FV':2, 'I':3, 'RH':4, 'RL':5, 'RP':6, 'RM':7, 'na':1, 'nan':1 } # MSZoning
 road_map     = { 'NA':0, 'Grvl':1, 'Pave':2, 'NaN':0, 'NAN':0 } # Street, Alley
 shape_map    = { 'Reg':0, 'IR1':1, 'IR2':2, 'IR3':3 }
 contour_map  = { 'Lvl':0, 'Bnk':1, 'HLS':2, 'Low':3 }
@@ -62,8 +62,8 @@ func_map     = { 'Typ':0, 'Min1':1, 'Min2':2, 'Mod':3, 'Maj1':4, 'Maj2:':5, 'Sev
 garT_map     = { 'NA':0, 'Detchd':1, 'CarPort':2, 'BuiltIn':3, 'Basement':4, 'Basment':4, 'Attchd':5, '2Types':6 }
 garF_map     = { 'NA':0, 'Unf':1, 'RFn':2, 'Fin':3 }
 fence_map    = { 'NA':0, 'MnWw':1, 'GdWo':2, 'MnPrv':3, 'GdPrv':4 }
-feat_map     = { 'NA':0, 'NaN':0, 'TenC':1, 'Shed':2, 'Elev':3, 'Gar2':4, 'Othr':5 }
-salType_map  = { 'WD':0, 'CWD':0, 'New':1, 'COD':2, 'VWD':3, 'Con':3, 'ConLw':3, 'ConLI':3, 'ConLD':3, 'Oth':3 }
+feat_map     = { 'NA':0, 'NaN':0, 'TenC':1, 'Shed':1, 'Elev':1, 'Gar2':1, 'Othr':1 }
+salType_map  = { 'WD':0, 'CWD':0, 'New':1, 'COD':2, 'VWD':3, 'Con':3, 'ConLw':3, 'ConLI':3, 'ConLD':3, 'Oth':3, 'na':3, 'nan':3 }
 salCond_map  = { 'Normal':0, 'Abnorml':1, 'AdjLand':0, 'Alloca':2, 'Family':3, 'Partial':4 }
 
 bsmtquall    = { 'NA':0, 'nan':0, 'NaN':0, 'Po':0, 'Fa':1, 'TA':2, 'Gd':3, 'Ex':4 }
@@ -71,9 +71,15 @@ grgquall     = { 'NA':0, 'nan':0, 'NaN':0, 'Po':1, 'Fa':1, 'TA':2, 'Gd':3, 'Ex':
 externcond   = { 'NA':0, 'nan':0, 'NaN':0, 'Po':0, 'Fa':0, 'TA':1, 'Gd':2, 'Ex':3 }
 
 
+# Fill nans with most common values
+def fill_nans( inp_df, column ):
+    modeVal =  inp_df[ column ].mode()
+    return     inp_df[ column ].fillna( modeVal )
+
 # Remap all the quality stuff to integers
 def remap_quality( quality_df ):
-    foo = quality_df[ ['ExterQual', 'FireplaceQu', 'KitchenQual', 'GarageQual'] ].replace( qual_map ).fillna(0).copy()
+    foo = quality_df[ ['ExterQual', 'FireplaceQu', 'KitchenQual'#, 'GarageQual','PoolQC'
+                      ] ].replace( qual_map ).fillna(0).copy()
 
     foo.fillna( 0, inplace=True )
     
@@ -88,27 +94,29 @@ def remap_quality( quality_df ):
     # Drop BsmtFinType2
     # Drop GarageCond
     
-    foo['ExterQual']   = foo['ExterQual'].replace( {1:0, 2:0, 3:0, 4:1, 5:1 } )
-    foo['GaragerQual'] = foo['GarageQual'].replace( {2:0, 0:1, 3:2, 4:2, 5:2} )
+    foo['RoofStyle']    = fill_nans( quality_df, 'RoofStyle' )
+#    foo['RoofMatl']     = fill_nans( foo, 'RoofMatl'  )
     
-    foo['BsmtQual']    = quality_df['BsmtQual']    .replace(   bsmtquall ).fillna( 0 )
-    foo['ExterCond']   = quality_df['ExterCond']   .replace(  externcond )
-    foo['HeatingQC']   = quality_df['HeatingQC']   .replace(  externcond )
-    #foo['RoofStyle']   = quality_df['RoofStyle']   .replace( roofSty_map )
-    #foo['RoofMatl']    = quality_df['RoofMatl']    .replace( roofMat_map )
-    foo['Exterior']    = quality_df['Exterior1st'] .replace(   exter_map )
-    #foo['Exterior2nd'] = quality_df['Exterior2nd'] .replace(   exter_map )
-    foo['MasVnrType']  = quality_df['MasVnrType']  .replace(    masn_map ).fillna( 0 )
-    foo['Bsmt']        = quality_df['BsmtExposure'].replace(    expo_map ).fillna( 0 )
-    #foo['BsmtFinType'] = quality_df['BsmtFinType1'].replace(  basFin_map ).fillna( 0 )
-    #foo['BsmtFinType2']= quality_df['BsmtFinType2'].replace(  basFin_map ).fillna( 0 )
-    foo['Electrical']  = quality_df['Electrical']  .replace(    elec_map ).fillna( 0 )
-    foo['GarageFinish']= quality_df['GarageFinish'].replace(    garF_map ).fillna( 0 )
-    foo['Fence']       = quality_df['Fence']       .replace(   fence_map ).fillna( 0 )#.replace( {1:0, 2:1, 3:2, 4:3} )
+    foo['FireplaceQu']  = foo['FireplaceQu'].replace( {1:1, 2:1, 3:1, 4:2, 5:2} )
+    foo['ExterQual']    = foo['ExterQual'].replace( {1:0, 2:0, 3:0, 4:1, 5:1 } )
+    #foo['GaragerQual']  = foo['GarageQual'].replace( {2:0, 0:1, 3:2, 4:2, 5:2} )
     
-    return foo[[ 'Exterior', 'ExterQual', 'MasVnrType', 'Fence', 
-                 'Bsmt', 'BsmtQual', 'GarageQual', 'GarageFinish',
-                 'FireplaceQu', 'HeatingQC', 'KitchenQual', 'Electrical']].astype(int)
+    foo['BsmtQual']     = quality_df['BsmtQual']    .replace(   bsmtquall ).fillna( 0 ).replace( {1:0, 2:0, 3:1, 4:2} )
+    foo['ExterCond']    = quality_df['ExterCond']   .replace(  externcond ).fillna( 0 ).replace( {1:0, 2:1, 3:1} )
+    foo['HeatingQC']    = quality_df['HeatingQC']   .replace(  externcond ).fillna( 0 )
+    foo['RoofStyle']    = quality_df['RoofStyle']   .replace( roofSty_map ).replace( {0:1,2:1,4:1,5:1} )
+#    foo['RoofMatl']     = quality_df['RoofMatl']    .replace( roofMat_map )
+    foo['Exterior1st']  = quality_df['Exterior1st'] .replace(   exter_map ).fillna( 0 )
+    foo['Exterior2nd']  = quality_df['Exterior2nd'] .replace(   exter_map ).fillna( 0 )
+    foo['MasVnrType']   = quality_df['MasVnrType']  .replace(    masn_map ).fillna( 0 )
+    foo['Bsmt']         = quality_df['BsmtExposure'].replace(    expo_map ).fillna( 0 )
+    foo['BsmtFinType1'] = quality_df['BsmtFinType1'].replace(  basFin_map ).fillna( 0 )
+    foo['BsmtFinType2'] = quality_df['BsmtFinType2'].replace(  basFin_map ).fillna( 0 ).replace( {2:0,3:0,4:0,5:0,6:0,7:0} )
+    foo['Electrical']   = quality_df['Electrical']  .replace(    elec_map ).fillna( 0 ).replace( {2:0, 3:0, 4:0, 5:0} )
+    foo['GarageFinish'] = quality_df['GarageFinish'].replace(    garF_map ).fillna( 0 )
+    foo['Fence']        = quality_df['Fence']       .replace(   fence_map ).fillna( 0 ).replace( {1:0, 2:1, 3:2, 4:3} )
+    
+    return foo.astype(int)
 
 # Remap all the home list stuff to integers
 def remap_home( quality_df ):
@@ -130,6 +138,9 @@ def remap_home( quality_df ):
     
     foo = quality_df[ bigList ].copy()
     
+#    foo['Utilities']    = fill_nans( quality_df, 'Utilities' )
+#    foo['Heating']      = fill_nans( quality_df, 'Heating'   )
+
     #foo['InsideSF']   = quality_df['1stFlrSF']     + quality_df['2ndFlrSF']
     foo['InsideSF']   = quality_df['GrLivArea'].astype(float)
     foo['OutsideSF']  =(quality_df['WoodDeckSF']   + quality_df['OpenPorchSF'] +\
@@ -138,36 +149,38 @@ def remap_home( quality_df ):
         
     foo['MultiStory'] =(quality_df['2ndFlrSF']>0 ).astype(int)
     
-    foo['NBath']      = quality_df['BsmtFullBath'] + quality_df['BsmtHalfBath'] +\
-                        quality_df['FullBath']     + quality_df['HalfBath']
-    
-    #foo['Utilities']  = quality_df['Utilities']  .replace(  util_map )
+    foo['NBath']      = (quality_df['BsmtFullBath'] + quality_df['BsmtHalfBath'] +\
+                         quality_df['FullBath']     + quality_df['HalfBath']).fillna(0)
+    foo['NBath']      = foo['NBath'].replace( {5:4, 6:4} )
+#    foo['Utilities']  = quality_df['Utilities']  .replace(  util_map )
     foo['BldgType']   = quality_df['BldgType']   .replace(  bldg_map )#.replace( {1:3, 3:1} )
     foo['HouseStyle'] = quality_df['HouseStyle'] .replace( style_map )#.replace( {3:0, 0:1, 1:2, 2:1, 4:1, 5:1, 6:3, 7:4})
-    #foo['Heating']    = quality_df['Heating']    .replace(  heat_map )
+#    foo['Heating']    = quality_df['Heating']    .replace(  heat_map )
     foo['CentralAir'] = quality_df['CentralAir'] .replace( yesno_map )
     foo['GarageType'] = quality_df['GarageType'] .replace(  garT_map ).fillna(0).replace({ 4:1, 1:2, 5:4, 6:4 }).astype(int)
     foo['GarageArea'] = quality_df['GarageArea']                      .fillna(0).astype(float)
-    #foo['MiscFeature']= quality_df['MiscFeature'].replace(  feat_map ).fillna( 0 )
+    foo['MiscFeature']= quality_df['MiscFeature'].replace(  feat_map ).fillna( 0 )
     
-    foo[ foo['KitchenAbvGr']==0 ] = 1
+    foo['KitchenAbvGr'].fillna( 0 ).replace( {0:1, 3:2} )
+    foo['Fireplaces'].fillna(0).replace( {3:2, 4:2, 5:2} )
     
-    return foo[[ 'BldgType', 'HouseStyle', 'MultiStory', 'InsideSF', 'OutsideSF',
-                 'NBath', 'KitchenAbvGr', 'TotRmsAbvGrd', 'GarageType', 'GarageArea', 'Fireplaces', 'CentralAir' ]]
+    return foo#[[ 'BldgType', 'HouseStyle', 'MultiStory', 'InsideSF', 'OutsideSF',
+              #   'NBath', 'KitchenAbvGr', 'TotRmsAbvGrd', 'GarageType', 'GarageArea', 'Fireplaces', 'CentralAir' ]]
 
 def remap_area( inp_df ):
     bigList = [ 'YrSold', 'MSSubClass', 'MSZoning', 'Neighborhood', 'Condition1', 'Condition2', #'MoSold', 
                 'SaleType', 'SaleCondition' ]
 
-    foo = inp_df[ ['YrSold','MSSubClass'] ].copy()
+    foo                  = inp_df[ ['YrSold','MSSubClass'] ].copy()
     foo['MSSubClass']    = inp_df['MSSubClass']   .replace(    MSSub_map )#.replace({0:0, 5:1, 11:2, 6:3, 4:4, 10:5, 1:10, 2:7, 3:0, 7:6, 8:8, 9:9, 12:0, 13:0, 14:0, 15:0 })
     foo['MSZoning']      = inp_df['MSZoning']     .replace( MSZoning_map )#.replace({0:0, 3:0, 5:0, 6:0, 8:0, 7:1, 1:2, 4:0, 2:3})
+    foo['MSZoning']      = foo['MSZoning'].fillna( 0 )
     foo['Neighborhood']  = inp_df['Neighborhood'] .replace(    neigh_map )
     foo['Condition1']    = inp_df['Condition1']   .replace(     cond_map )
     foo['Condition2']    = inp_df['Condition2']   .replace(     cond_map )
     foo['SaleType']      = inp_df['SaleType']     .replace(  salType_map )
+    foo['SaleType']      = foo['SaleType'].fillna( 0 )
     foo['SaleCondition'] = inp_df['SaleCondition'].replace(  salCond_map )
-   
     foo['Condition']     = foo['Condition1']
 
 
@@ -176,22 +189,22 @@ def remap_area( inp_df ):
 def remap_road( inp_df ):
     bigList = [ 'LotFrontage', 'Alley', 'PavedDrive' ]
 
-    foo = inp_df[ bigList ].replace( road_map ).copy()
+    foo               = inp_df[ bigList ].replace( road_map ).copy()
     foo['Alley'     ] = inp_df['Alley'     ].replace(  road_map ).fillna(0).astype(int)
 #    foo['Street'    ] = inp_df['Street'    ].replace(  road_map )
     foo['PavedDrive'] = inp_df['PavedDrive'].replace( yesno_map )
-   
+
     return foo.fillna( 0 )
 
 def remap_land( inp_df ):
     bigList = [ 'LotArea', 'LotShape', 'LandContour', 'LotConfig', 'LandSlope' ]
 
-    foo = inp_df[ bigList ].copy()
-    foo['junk'] = foo['LotShape']
-    foo['LotShape'] = foo['LotShape'].replace( shape_map )
-    foo['LandContour'] = foo['LandContour'].replace( contour_map )
-    foo['LotConfig']   = foo['LotConfig']  .replace(  config_map )  
-    foo['LandSlope']   = foo['LandSlope']  .replace(   slope_map )
+    foo                = inp_df[ bigList ].copy()
+    foo['junk']        = foo['LotShape']
+    foo['LotShape']    = foo['LotShape']   .replace( shape_map ).replace( {3:2} )
+    foo['LandContour'] = foo['LandContour'].replace( contour_map ).replace( {2:1,3:1,4:1,5:1} )
+    foo['LotConfig']   = foo['LotConfig']  .replace(  config_map ).replace( {4:3} )  
+    foo['LandSlope']   = foo['LandSlope']  .replace(   slope_map ).replace( {2:1} )
     
     foo['LotArea'  ]   = np.log10( foo['LotArea'] )
     
@@ -247,9 +260,11 @@ def normalize_homes( inp_df ):
     # Garage upper
     # Frontage upper
     # Are upper and lower
-    my_df['InsideSF']    = np.log10( inp_df['InsideSF']+1  )
-    my_df['OutsideSF']   = np.log10( inp_df['OutsideSF']+1 )
-
+    my_df['InsideSF']    = np.log10( inp_df['InsideSF']+1   )
+    my_df['OutsideSF']   = np.log10( inp_df['OutsideSF']+1  )
+    my_df['GarageArea']  = np.log10( inp_df['GarageArea']+1 )
+    my_df['LotFrontage'] = np.log10( inp_df['LotFrontage'] / np.sqrt( inp_df['LotArea'] ) +1 )
+    
     my_df['InsideSF']    = normalize_column_sigma( my_df, 'InsideSF'  )
     my_df['OutsideSF']   = normalize_column_sigma( my_df, 'OutsideSF' )
 
@@ -352,7 +367,7 @@ def optimize_fit( clf, train_x, train_y, grid_params, nf=10, verbose=True ):
         clf_list.append( clone( new_clf.best_estimator_ ) )
         if ( verbose ):
 #            print("Fold {0} accuracy: {1}".format(fold, accuracy)), ', ', new_clf.best_score_, new_clf.best_params_
-            print "Fold %2i accuracy: %10.8f " % (fold, accuracy), ', ', '%10.8f '%new_clf.best_score_, new_clf.best_params_
+            print "Fold %2i accuracy: %6.4f " % (fold, accuracy), ', ', '%6.4f '%new_clf.best_score_, new_clf.best_params_
         
     best_clf_score = 0
     best_clf_index = 0
@@ -386,7 +401,7 @@ def optimize_fit( clf, train_x, train_y, grid_params, nf=10, verbose=True ):
             accuracies.append(accuracy)
         
         mean_outcome = np.mean( accuracies )
-        print "Clf %2i Mean Accuracy: %10.8f +/- %10.8f" % (clf_num,mean_outcome,np.std(accuracies))
+        print "Clf %2i Mean Accuracy: %6.4f +/- %6.4f" % (clf_num,mean_outcome,np.std(accuracies))
 
         # Figure out which clf is the best
         if ( mean_outcome > best_clf_score ):
