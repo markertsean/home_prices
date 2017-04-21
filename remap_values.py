@@ -420,3 +420,40 @@ def optimize_fit( clf, train_x, train_y, grid_params, nf=10, verbose=True ):
     
     
     return ret_clf
+
+excellent_pred = ['InsideSF', 'NBath', 'GarageArea']
+good_pred      = ['TotRmsAbvGrd', 'BsmtQual','MasVnrType','Fireplaces','Neighborhood','GarageFinish',
+                  'GarageType','LotFrontage', 'OutsideSF', 'LotArea']
+fair_pred      = ['FireplaceQu','BsmtFinType1','MSSubClass','Condition','BldgType','SaleType',
+                  'HouseStyle','LotShape','LotConfig','Exterior2nd','Alley','PavedDrive','RoofStyle',
+                  'SaleCondition','MSZoning','HeatingQC','Exterior1st','Electrical', 'ExterQual', 'KitchenQual']
+poor_pred      = ['CentralAir','ExterCond','Bsmt','LandContour','LandSlope','MultiStory','KitchenAbvGr',
+                  'Fence','BsmtFinType2','MiscFeature','YrSold']
+
+def run_clean( input_df, train=False, warp=False ):
+    qual_t_df = remap_quality( input_df )
+    home_t_df = remap_home(    input_df )
+    area_t_df = remap_area(    input_df )
+    road_t_df = remap_road(    input_df )
+    land_t_df = remap_land(    input_df )
+    do_df     = qual_t_df.join( home_t_df ).join( area_t_df ).join( 
+                                road_t_df ).join( land_t_df ).copy()
+    
+    do_df = normalize_homes( do_df )
+
+    
+    if ( warp ):
+        ex = 3.0
+        go = 2.0
+        fa = 1.0
+        po = 0.5
+        
+        do_df.ix[ :, excellent_pred ] = do_df.ix[ :, excellent_pred ] * ex
+        do_df.ix[ :,      good_pred ] = do_df.ix[ :,      good_pred ] * go
+        do_df.ix[ :,      poor_pred ] = do_df.ix[ :,      poor_pred ] * po
+
+    if ( train ):
+        do_df['SalePrice'] = np.log10(input_df['SalePrice'])
+
+    
+    return do_df.copy()
