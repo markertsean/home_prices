@@ -77,7 +77,7 @@ def fill_nans( inp_df, column ):
     return     inp_df[ column ].fillna( modeVal )
 
 # Remap all the quality stuff to integers
-def remap_quality( quality_df ):
+def remap_quality( quality_df, binary ):
     foo = quality_df[ ['ExterQual', 'FireplaceQu', 'KitchenQual'#, 'GarageQual','PoolQC'
                       ] ].replace( qual_map ).fillna(0).copy()
 
@@ -116,10 +116,16 @@ def remap_quality( quality_df ):
     foo['GarageFinish'] = quality_df['GarageFinish'].replace(    garF_map ).fillna( 0 )
     foo['Fence']        = quality_df['Fence']       .replace(   fence_map ).fillna( 0 ).replace( {1:0, 2:1, 3:2, 4:3} )
     
-    return foo.astype(int)
+    foo['KitchenQual']  = foo['KitchenQual'].replace( {0:foo['KitchenQual'].mode().values[0]} )
+
+
+    if ( binary ):
+        return binary_classification( foo )
+    else:
+        return foo
 
 # Remap all the home list stuff to integers
-def remap_home( quality_df ):
+def remap_home( quality_df, binary ):
     bigList = [ 'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces' ]
 
     # Make total SF from 1st&2nd Floor
@@ -161,13 +167,18 @@ def remap_home( quality_df ):
     foo['GarageArea'] = quality_df['GarageArea']                      .fillna(0).astype(float)
     foo['MiscFeature']= quality_df['MiscFeature'].replace(  feat_map ).fillna( 0 )
     
-    foo['KitchenAbvGr'].fillna( 0 ).replace( {0:1, 3:2} )
-    foo['Fireplaces'].fillna(0).replace( {3:2, 4:2, 5:2} )
-    
-    return foo#[[ 'BldgType', 'HouseStyle', 'MultiStory', 'InsideSF', 'OutsideSF',
-              #   'NBath', 'KitchenAbvGr', 'TotRmsAbvGrd', 'GarageType', 'GarageArea', 'Fireplaces', 'CentralAir' ]]
+    foo['KitchenAbvGr'] = foo['KitchenAbvGr'].fillna( 0 ).replace( {0:1, 3:2} )
+    foo['Fireplaces']   = foo['Fireplaces'].fillna(0).replace( {3:2, 4:2, 5:2} )
+#    foo[ foo['Fireplaces'] == 4 ] = 2
+#    foo[ foo['HouseStyle'] == 7 ] = foo['HouseStyle'].mode().values[0]
+#    foo['HouseStyle'] = foo['HouseStyle'].replace( {5:foo['HouseStyle'].mode().values[0]} )
+   
+    if ( binary ):
+        return binary_classification( foo, ignore=['NBath','TotRmsAbvGrd'] )
+    else:
+        return foo
 
-def remap_area( inp_df ):
+def remap_area( inp_df, binary ):
     bigList = [ 'YrSold', 'MSSubClass', 'MSZoning', 'Neighborhood', 'Condition1', 'Condition2', #'MoSold', 
                 'SaleType', 'SaleCondition' ]
 
@@ -182,11 +193,22 @@ def remap_area( inp_df ):
     foo['SaleType']      = foo['SaleType'].fillna( 0 )
     foo['SaleCondition'] = inp_df['SaleCondition'].replace(  salCond_map )
     foo['Condition']     = foo['Condition1']
+    foo = foo.drop( ['Condition1','Condition2'], axis=1 )
 
+#    foo[ foo['Neighborhood'] == 16 ] = foo['Neighborhood'].mode().values[0]
+#    foo[ foo['MSSubClass']   == 15 ] = foo['MSSubClass']  .mode().values[0]
+#    foo[ foo['MSSubClass']   == 12 ] = foo['MSSubClass']  .mode().values[0]
+#    foo[ foo['MSZoning']     ==  5 ] = foo['MSZoning'  ]  .mode().values[0]
+    foo['MSSubClass'] = foo['MSSubClass'].replace( {12:foo['MSSubClass'].mode().values[0]} )
+    foo['MSZoning'  ] = foo['MSZoning'  ].replace( { 0:foo['MSZoning'  ].mode().values[0]} )
+    
+    
+    if ( binary ):
+        return binary_classification( foo )
+    else:
+        return foo
 
-    return foo.drop( ['Condition1','Condition2'], axis=1 )
-
-def remap_road( inp_df ):
+def remap_road( inp_df, binary ):
     bigList = [ 'LotFrontage', 'Alley', 'PavedDrive' ]
 
     foo               = inp_df[ bigList ].replace( road_map ).copy()
@@ -194,9 +216,15 @@ def remap_road( inp_df ):
 #    foo['Street'    ] = inp_df['Street'    ].replace(  road_map )
     foo['PavedDrive'] = inp_df['PavedDrive'].replace( yesno_map )
 
-    return foo.fillna( 0 )
+    foo = foo.fillna( 0 )
 
-def remap_land( inp_df ):
+    if ( binary ):
+        return binary_classification( foo )
+    else:
+        return foo
+
+
+def remap_land( inp_df, binary ):
     bigList = [ 'LotArea', 'LotShape', 'LandContour', 'LotConfig', 'LandSlope' ]
 
     foo                = inp_df[ bigList ].copy()
@@ -208,8 +236,12 @@ def remap_land( inp_df ):
     
     foo['LotArea'  ]   = np.log10( foo['LotArea'] )
     
-    return foo[bigList]
-
+    foo = foo[bigList]
+    
+    if ( binary ):
+        return binary_classification( foo )
+    else:
+        return foo
 
 # Normalize index
 def normalize_column( inp_df, column, maxVal=None, minVal=None ):
@@ -253,7 +285,8 @@ def normalize_homes( inp_df ):
     
     # Normalize categories from 0 to 1
     for col in my_df.columns.values:
-        my_df[col] = normalize_column( my_df, col )
+        if ( len(my_df[col].unique()) > 2 ):
+            my_df[col] = normalize_column( my_df, col )
     
     # Inside top and bot, log first
     # Outside top and bot log first
@@ -421,8 +454,8 @@ def optimize_fit( clf, train_x, train_y, grid_params, nf=10, verbose=True ):
     
     return ret_clf
 
-excellent_pred = ['InsideSF', 'NBath', 'GarageArea']
-good_pred      = ['TotRmsAbvGrd', 'BsmtQual','MasVnrType','Fireplaces','Neighborhood','GarageFinish',
+excellent_pred = ['InsideSF', 'NBath', 'GarageArea','TotRmsAbvGrd']
+good_pred      = ['BsmtQual','MasVnrType','Fireplaces','Neighborhood','GarageFinish',
                   'GarageType','LotFrontage', 'OutsideSF', 'LotArea']
 fair_pred      = ['FireplaceQu','BsmtFinType1','MSSubClass','Condition','BldgType','SaleType',
                   'HouseStyle','LotShape','LotConfig','Exterior2nd','Alley','PavedDrive','RoofStyle',
@@ -430,12 +463,12 @@ fair_pred      = ['FireplaceQu','BsmtFinType1','MSSubClass','Condition','BldgTyp
 poor_pred      = ['CentralAir','ExterCond','Bsmt','LandContour','LandSlope','MultiStory','KitchenAbvGr',
                   'Fence','BsmtFinType2','MiscFeature','YrSold']
 
-def run_clean( input_df, train=False, warp=False ):
-    qual_t_df = remap_quality( input_df )
-    home_t_df = remap_home(    input_df )
-    area_t_df = remap_area(    input_df )
-    road_t_df = remap_road(    input_df )
-    land_t_df = remap_land(    input_df )
+def run_clean( input_df, train=False, warp=False, binary=True ):
+    qual_t_df = remap_quality( input_df, binary )
+    home_t_df = remap_home(    input_df, binary )
+    area_t_df = remap_area(    input_df, binary )
+    road_t_df = remap_road(    input_df, binary )
+    land_t_df = remap_land(    input_df, binary )
     do_df     = qual_t_df.join( home_t_df ).join( area_t_df ).join( 
                                 road_t_df ).join( land_t_df ).copy()
     
@@ -457,3 +490,45 @@ def run_clean( input_df, train=False, warp=False ):
 
     
     return do_df.copy()
+
+
+bin_class_array = []
+
+# Change the classifications to multiple binary columns
+def binary_classification( inp_df, ignore=None, lowerLim=2, upperLim=20 ):
+
+    global bin_class_array
+    
+    bar=inp_df.copy()
+    col_list = bar.columns.values
+    
+    if ( ignore != None ):
+        if type( ignore ) is list:
+            for element in ignore:
+                index    = np.argwhere( col_list==element )
+                col_list = np.delete(   col_list, index )
+        else:
+            index    = np.argwhere( col_list==ignore )
+            col_list = np.delete( col_list, index )
+            
+    # Consider each column
+    for col in col_list:
+
+        options = sorted(bar[col].unique()) # Possible options
+
+        # Only reformat the classification columns
+        if ( len(options) > lowerLim and 
+             len(options) < upperLim ):
+
+            iterator = 0
+            # Create new binary clssifier for each class column
+            for item in bar[col].unique():
+
+                new_col = col+'_'+str( int(item) )
+
+                bar[new_col] = 0
+                bar.ix[ bar[col]==item, [new_col] ] = 1
+
+            # Remove previous classification
+            bar.drop( col, axis=1, inplace=True )
+    return bar
