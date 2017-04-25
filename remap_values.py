@@ -260,7 +260,7 @@ def normalize_column( inp_df, column, maxVal=None, minVal=None ):
     new_column.ix[ new_column[column]<0, column ] = 0.0
     new_column.ix[ new_column[column]>1, column ] = 1.0
 
-    return new_column[column]
+    return 2*new_column[column]-1.
 
 # Find normalization values within input sigma, returns normalization parameters that ignores outliers
 def normalize_column_sigma( inp_df, column, lower_bound=True, upper_bound=True, n_sigma=3.0 ):
@@ -524,7 +524,7 @@ def binary_classification( inp_df, ignore=None, lowerLim=2, upperLim=20 ):
             # Create new binary clssifier for each class column
             for item in bar[col].unique():
 
-                new_col = col+'_'+str( int(item) )
+                new_col = col+'_'+str( item )
 
                 bar[new_col] = 0
                 bar.ix[ bar[col]==item, [new_col] ] = 1
@@ -532,3 +532,86 @@ def binary_classification( inp_df, ignore=None, lowerLim=2, upperLim=20 ):
             # Remove previous classification
             bar.drop( col, axis=1, inplace=True )
     return bar
+
+# From the tanner kernel
+def run_tan( train_df, test_df ):
+    
+    g_cols = ['GarageType', 'GarageYrBlt', 'GarageFinish', 'GarageCars', 'GarageArea', 'GarageQual', 'GarageCond']
+    b_cols = ['BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinSF1','BsmtFinType2',
+              'BsmtFinSF2','BsmtUnfSF','TotalBsmtSF','BsmtFullBath','BsmtHalfBath']
+    
+    # Some specific values
+    test_df.ix[666,'GarageFinish'] = test_df['GarageFinish'].mode()[0]
+    test_df.ix[666,'GarageQual'  ] = test_df['GarageQual'  ].mode()[0]
+    test_df.ix[666,'GarageCond'  ] = test_df['GarageCond'  ].mode()[0]
+    test_df.ix[1150,'MasVnrType' ] = 'BrkFace'
+    
+    comb   = [train_df,test_df]
+    
+    for df in comb:
+        
+        # Remove pool nans
+        inds = df[ df['PoolQC'].isnull() ][ df['PoolArea'] > 0 ].index
+        if len( inds > 0 ):
+            df.ix[inds,['PoolQC']] = 'Ex'
+        df['PoolQC'] = df['PoolQC'].fillna('None')
+    
+    
+        # Put in garage build the home year if missing
+        df['GarageYrBlt'] = df['GarageYrBlt'].fillna( df['YearBuilt'] )
+    
+        # Take care of garage nans
+        for col in g_cols:
+            if ( df[col].dtype == float ):
+                df[col] = df[col].fillna( 0 )
+            else:
+                df[col] = df[col].fillna( 'None' )
+    
+        # Take care of basement nans
+        for col in b_cols:
+            if ( df[col].dtype == float ):
+                df[col] = df[col].fillna( 0 )
+            else:
+                df[col] = df[col].fillna( 'None' )
+    
+        # Miscellaneous nans
+        df['KitchenQual'] = df['KitchenQual'].fillna( df['KitchenQual'].mode()[0] )
+        df['Electrical' ] = df['Electrical' ].fillna( df['Electrical' ].mode()[0] )
+        df['SaleType'   ] = df['SaleType'   ].fillna( df['SaleType'   ].mode()[0] )
+        df['Functional' ] = df['Functional' ].fillna( df['Functional' ].mode()[0] )
+        df['Utilities'  ] = df['Utilities'  ].fillna( df['Utilities'  ].mode()[0] )    
+        df['MSZoning'   ] = df['MSZoning'   ].fillna( df['MSZoning'   ].mode()[0] )
+        df['MasVnrArea' ] = df['MasVnrArea' ].fillna(       0 )
+        df['MasVnrType' ] = df['MasVnrType' ].fillna( 'None'  )
+        df['Fence'      ] = df['Fence'      ].fillna( 'None'  )
+        df['Alley'      ] = df['Alley'      ].fillna( 'None'  )
+        df['FireplaceQu'] = df['FireplaceQu'].fillna( 'None'  )
+        df['MiscFeature'] = df['MiscFeature'].fillna( 'None'  )
+        df['Exterior1st'] = df['Exterior1st'].fillna( 'Other' )
+        df['Exterior2nd'] = df['Exterior2nd'].fillna( 'Other' )
+
+        df['LotFrontage'] = df['LotFrontage'].fillna( df['LotFrontage'].mean() )
+
+        df = df.drop( 'Utilities', axis=1 )
+    
+    return train_df, test_df
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
