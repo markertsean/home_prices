@@ -546,53 +546,174 @@ def run_tan( train_df, test_df ):
     test_df.ix[666,'GarageCond'  ] = test_df['GarageCond'  ].mode()[0]
     test_df.ix[1150,'MasVnrType' ] = 'BrkFace'
     
+    train_df = train_df.loc[ train_df['GrLivArea'] < 4000 ].copy()
+
+    sp = train_df['SalePrice'].copy()
+    
+#    add_cols = ['NBath', 'YearSinceRemodel', 'TimeSinceSold', 'Age', 'AreaInside', 'HeatingScale', 'PartialPlan', 'NeighBin', 'HighSeason']
+    new_dfs = [0,0]
+    
     comb   = [train_df,test_df]
     
+    run = 0
+    
     for df in comb:
-        
+
+        new_dfs[run] = df.copy()
+
         # Remove pool nans
         inds = df[ df['PoolQC'].isnull() ][ df['PoolArea'] > 0 ].index
         if len( inds > 0 ):
             df.ix[inds,['PoolQC']] = 'Ex'
-        df['PoolQC'] = df['PoolQC'].fillna('None')
+        new_dfs[run]['PoolQC'] = df['PoolQC'].fillna('None')
     
     
         # Put in garage build the home year if missing
-        df['GarageYrBlt'] = df['GarageYrBlt'].fillna( df['YearBuilt'] )
+        new_dfs[run]['GarageYrBlt'] = df['GarageYrBlt'].fillna( df['YearBuilt'] )
     
         # Take care of garage nans
         for col in g_cols:
             if ( df[col].dtype == float ):
-                df[col] = df[col].fillna( 0 )
+                new_dfs[run][col] = df[col].fillna( 0 )
             else:
-                df[col] = df[col].fillna( 'None' )
+                new_dfs[run][col] = df[col].fillna( 'None' )
     
         # Take care of basement nans
         for col in b_cols:
             if ( df[col].dtype == float ):
-                df[col] = df[col].fillna( 0 )
+                new_dfs[run][col] = df[col].fillna( 0 )
             else:
-                df[col] = df[col].fillna( 'None' )
+                new_dfs[run][col] = df[col].fillna( 'None' )
     
         # Miscellaneous nans
-        df['KitchenQual'] = df['KitchenQual'].fillna( df['KitchenQual'].mode()[0] )
-        df['Electrical' ] = df['Electrical' ].fillna( df['Electrical' ].mode()[0] )
-        df['SaleType'   ] = df['SaleType'   ].fillna( df['SaleType'   ].mode()[0] )
-        df['Functional' ] = df['Functional' ].fillna( df['Functional' ].mode()[0] )
-        df['Utilities'  ] = df['Utilities'  ].fillna( df['Utilities'  ].mode()[0] )    
-        df['MSZoning'   ] = df['MSZoning'   ].fillna( df['MSZoning'   ].mode()[0] )
-        df['MasVnrArea' ] = df['MasVnrArea' ].fillna(       0 )
-        df['MasVnrType' ] = df['MasVnrType' ].fillna( 'None'  )
-        df['Fence'      ] = df['Fence'      ].fillna( 'None'  )
-        df['Alley'      ] = df['Alley'      ].fillna( 'None'  )
-        df['FireplaceQu'] = df['FireplaceQu'].fillna( 'None'  )
-        df['MiscFeature'] = df['MiscFeature'].fillna( 'None'  )
-        df['Exterior1st'] = df['Exterior1st'].fillna( 'Other' )
-        df['Exterior2nd'] = df['Exterior2nd'].fillna( 'Other' )
+        new_dfs[run]['KitchenQual'] = df['KitchenQual'].fillna( df['KitchenQual'].mode()[0] )
+        new_dfs[run]['Electrical' ] = df['Electrical' ].fillna( df['Electrical' ].mode()[0] )
+        new_dfs[run]['SaleType'   ] = df['SaleType'   ].fillna( df['SaleType'   ].mode()[0] )
+        new_dfs[run]['Functional' ] = df['Functional' ].fillna( df['Functional' ].mode()[0] )
+        new_dfs[run]['Utilities'  ] = df['Utilities'  ].fillna( df['Utilities'  ].mode()[0] )    
+        new_dfs[run]['MSZoning'   ] = df['MSZoning'   ].fillna( df['MSZoning'   ].mode()[0] )
+        new_dfs[run]['MasVnrArea' ] = df['MasVnrArea' ].fillna(       0 )
+        new_dfs[run]['MasVnrType' ] = df['MasVnrType' ].fillna( 'None'  )
+        new_dfs[run]['Fence'      ] = df['Fence'      ].fillna( 'None'  )
+        new_dfs[run]['Alley'      ] = df['Alley'      ].fillna( 'None'  )
+        new_dfs[run]['FireplaceQu'] = df['FireplaceQu'].fillna( 'None'  )
+        new_dfs[run]['MiscFeature'] = df['MiscFeature'].fillna( 'None'  )
+        new_dfs[run]['Exterior1st'] = df['Exterior1st'].fillna( 'Other' )
+        new_dfs[run]['Exterior2nd'] = df['Exterior2nd'].fillna( 'Other' )
 
-        df['LotFrontage'] = df['LotFrontage'].fillna( df['LotFrontage'].mean() )
+        new_dfs[run]['LotFrontage'] = df['LotFrontage'].fillna( df['LotFrontage'].mean() )
 
-        df = df.drop( 'Utilities', axis=1 )
+    
+    
+        # Nans and inconsistencies filled, now begin to remap
+        num_df = df.ix[:, df.dtypes==float ].copy()
+        num_df = num_df.join( df.ix[:, df.dtypes==int ], how='inner'  ).copy()
+        cat_df = df.ix[:, df.dtypes=='O'].copy()
+
+
+        # Remap to numeric values
+        qual_cols = ['ExterQual', 'ExterCond', 'GarageQual', 'GarageCond', 'FireplaceQu', 'KitchenQual', 'HeatingQC', 'BsmtQual']
+        for col in qual_cols:
+            new_dfs[run][col] = cat_df[col].replace( {'None': 0, 'Po': 1, 'Fa': 2, 'TA': 3, 'Gd': 4, 'Ex': 5} )
+
+        new_dfs[run]['BsmtExposure'] = cat_df['BsmtExposure'].replace( {'None': 0, 'No': 1, 'Mn': 2, 'Av': 3, 'Gd': 4} )
+        new_dfs[run]['BsmtFinType1'] = cat_df['BsmtFinType1'].replace( {'None': 1, 'Unf': 1, 'LwQ': 2,'Rec': 3, 'BLQ': 4, 'ALQ': 5, 'GLQ': 6} )
+        new_dfs[run]['BsmtFinType2'] = cat_df['BsmtFinType2'].replace( {'None': 1, 'Unf': 1, 'LwQ': 2,'Rec': 3, 'BLQ': 4, 'ALQ': 5, 'GLQ': 6} )
+        new_dfs[run]['Functional'  ] = cat_df['Functional'  ].replace( {'None': 0, 'Sal': 1, 'Sev': 2, 'Maj2': 3, 'Maj1': 4, 
+                                                                  'Mod': 5, 'Min2': 6, 'Min1': 7, 'Typ': 8} )
+        new_dfs[run]['GarageFinish'] = cat_df['GarageFinish'].replace( {'None': 1,'Unf': 1, 'RFn': 1, 'Fin': 2} )
+        new_dfs[run]['Fence'       ] = cat_df['Fence'       ].replace( {'None': 1, 'MnWw': 1, 'GdWo': 1, 'MnPrv': 2, 'GdPrv': 4} )
+        new_dfs[run]['Street'      ] = cat_df['Street'      ].replace( {'Pave': 1, 'Grvl':2 } )
+        new_dfs[run]['Alley'       ] = cat_df['Alley'       ].replace( {'None': 0, 'Pave':1, 'Grvl':2} )
+        new_dfs[run]['Foundation'  ] = cat_df['Foundation'  ].replace( {'Wood': 0, 'BrkTil':0, 'CBlock':1, 'PConc':1, 'Slab':1, 'Stone':2} )       
+        new_dfs[run]['LotConfig'   ] = cat_df['LotConfig'   ].replace( {'Corner':0,'CulDSac':1,'FR2':2,'FR3':3,'Inside':4} )       
+        
+        manual_cols = ['BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','GarageFinish','Fence','NewerDwelling']
+        binarize    = ['LotShape','LandContour','LandSlope','Electrical','GarageType','PavedDrive','MiscFeature']
+        binarize2   = ['2ndFlrSF', 'MasVnrArea', 'WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch']
+        
+        # Alter pretty binary categories so just regular/irregular, 0 reg 1 irreg
+        new_dfs[run]['LotShape']    = (cat_df['LotShape'   ] == 'Reg'   ) * 1
+        new_dfs[run]['LandContour'] = (cat_df['LandContour'] == 'Lvl'   ) * 1
+        new_dfs[run]['LandSlope'  ] = (cat_df['LandSlope'  ] == 'Gtl'   ) * 1
+        new_dfs[run]['Electrical' ] = (cat_df['Electrical' ] == 'SBrkr' ) * 1
+        new_dfs[run]['GarageType' ] = (cat_df['GarageType' ] == 'Detchd') * 1
+        new_dfs[run]['PavedDrive' ] = (cat_df['PavedDrive' ] == 'Y'     ) * 1
+        new_dfs[run]['MiscFeature'] = (cat_df['MiscFeature'] == 'Shed'  ) * 1    
+
+
+        new_dfs[run]['NewerDwelling'] =  cat_df['MSZoning'    ].replace( {'RL':0, 'RM':1, 'C (all)':2, 'FV':3, 'RH':4} )
+        new_dfs[run]['HasWoodDeck']   = (num_df['WoodDeckSF'  ] > 0) * 1
+        new_dfs[run]['Has2ndFlr']     = (num_df['2ndFlrSF'    ] > 0) * 1
+        new_dfs[run]['HasMasVnr']     = (num_df['MasVnrArea'  ] > 0) * 1
+        new_dfs[run]['Remodeled']     = (num_df['YearBuilt'   ] != num_df['YearRemodAdd']) * 1
+        new_dfs[run]['RecentRemodel'] = (num_df['YearRemodAdd'] >= num_df['YrSold'      ]) * 1
+        new_dfs[run]['NewHouse']      = (num_df['YearBuilt'   ] == num_df['YrSold'      ]) * 1
+
+        new_dfs[run] = new_dfs[run].drop( ['LotShape','LandContour'], axis=1 )
+        
+        for col in binarize2:
+            new_dfs[run]['Has'+col] = (num_df[col] != 0) * 1
+            
+        new_dfs[run]['HighSeason'] = ((num_df['MoSold'] >= 5) & (num_df['MoSold'] <= 7) ) * 1
+        
+        new_dfs[run]['NeighBin'] = cat_df['Neighborhood'].replace( {'MeadowV': 0, 'IDOTRR' : 1, 'Sawyer' : 1, 'BrDale' : 1, 'OldTown': 1, 
+                                                                    'Edwards': 1, 
+                                                              'BrkSide': 1, 'Blueste': 1, 'SWISU'  : 2, 'NAmes'  : 2, 'NPkVill': 2, 'Mitchel': 2,
+                                                              'SawyerW': 2, 'Gilbert': 2, 'NWAmes' : 2, 'Blmngtn': 2, 'CollgCr': 2, 'ClearCr': 3, 
+                                                              'Crawfor': 3, 'Veenker': 3, 'Somerst': 3, 'Timber' : 3, 'StoneBr': 4, 'NoRidge': 4, 
+                                                              'NridgHt': 4} )
+        
+        new_dfs[run]['PartialPlan' ] = (cat_df['SaleCondition'] == 'Partial') * 1
+
+        new_dfs[run]['HeatingScale'] = cat_df['HeatingQC'].replace( {'Po': 0, 'Fa': 1, 'TA': 2, 'Gd': 3, 'Ex': 4} )
+        new_dfs[run]['AreaInside'  ] = num_df['1stFlrSF'] + num_df['2ndFlrSF']
+        
+        # Make some new classes
+        new_dfs[run]['Age']              =             2010 - num_df['YearBuilt']
+        new_dfs[run]['TimeSinceSold']    =             2010 - num_df['YrSold']
+        new_dfs[run]['YearSinceRemodel'] = num_df['YrSold'] - num_df['YearRemodAdd']
+        
+        # Already binary
+        binary_class = ['GarageFinish','LotShape','LandContour','LandSlope','Electrical','GarageType','PavedDrive',
+                        'MiscFeature','HasWoodDeck','Has2ndFlr','HasMasVnr','Remodeled','RecentRemodel','NewHouse',
+                        'Has2ndFlrSF','HasMasVnrArea','HasWoodDeckSF','HasOpenPorchSF','HasEnclosedPorch',
+                        'Has3SsnPorch','HasScreenPorch','HighSeason','PartialPlan']
+        # Need to make binary
+        to_bin_class = ['BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','Fence','NewerDwelling','NeighBin','HeatingScale','MSSubClass']
+        
+        new_dfs[run]['NBath'] = num_df['BsmtFullBath'] + num_df['BsmtHalfBath']*0.5 + num_df['FullBath'] + num_df['HalfBath']*0.5
+                
+        run = run + 1
+
+    train_df = new_dfs[1].join( train_df['SalePrice'], how='inner' ).copy()#train_df.join( new_dfs[0], how='inner' )
+    test_df  = new_dfs[1].copy()# test_df.join( new_dfs[1], how='inner' )
+
+    
+    # Set up some binary classifications
+    
+    to_bin_class = ['BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','Fence','NewerDwelling','NeighBin','HeatingScale','MSSubClass',
+                    'LotConfig','Alley']
+    
+    train_df.join( binary_classification( train_df.ix[:,to_bin_class] ), how='inner' )
+    test_df .join( binary_classification(  test_df.ix[:,to_bin_class] ), how='inner' )
+
+    drop_list = ['MSZoning','Utilities','Condition1','Condition2','HeatingQC','ExterQual', 'ExterCond', 'GarageQual', 
+                 'GarageCond', 'FireplaceQu', 'KitchenQual', 'HeatingQC', 'BsmtQual','RoofStyle','RoofMatl',
+                 'Exterior1st','Exterior2nd','MasVnrType','BsmtCond','Heating','CentralAir','PoolQC',
+                 'SaleType','SaleCondition','LotConfig',
+                 #ARE WE SURE ^ ?
+                 'BldgType','HouseStyle','Neighborhood'
+                ]
+    
+    train_df = train_df.drop( drop_list, axis = 1 )
+    test_df  =  test_df.drop( drop_list, axis = 1 )
+
+    
+#    train_df = train_df.drop( to_bin_class, axis = 1 )
+#    test_df  =  test_df.drop( to_bin_class, axis = 1 )
+    
+    train_df['SalePrice'] = sp
     
     return train_df, test_df
     
