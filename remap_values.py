@@ -519,7 +519,6 @@ def binary_classification( inp_df, ignore=None, lowerLim=2, upperLim=20 ):
         # Only reformat the classification columns
         if ( len(options) > lowerLim and 
              len(options) < upperLim ):
-
             iterator = 0
             # Create new binary clssifier for each class column
             for item in bar[col].unique():
@@ -546,7 +545,6 @@ def run_tan( train_df, test_df ):
     test_df.ix[666,'GarageCond'  ] = test_df['GarageCond'  ].mode()[0]
     test_df.ix[1150,'MasVnrType' ] = 'BrkFace'
     
-    train_df = train_df.loc[ train_df['GrLivArea'] < 4000 ].copy()
 
     sp = train_df['SalePrice'].copy()
     
@@ -562,7 +560,7 @@ def run_tan( train_df, test_df ):
         new_dfs[run] = df.copy()
 
         # Remove pool nans
-        inds = df[ df['PoolQC'].isnull() ][ df['PoolArea'] > 0 ].index
+        inds = df[ df['PoolQC'].isnull() & df['PoolArea'] > 0 ].index
         if len( inds > 0 ):
             df.ix[inds,['PoolQC']] = 'Ex'
         new_dfs[run]['PoolQC'] = df['PoolQC'].fillna('None')
@@ -616,17 +614,22 @@ def run_tan( train_df, test_df ):
         for col in qual_cols:
             new_dfs[run][col] = cat_df[col].replace( {'None': 0, 'Po': 1, 'Fa': 2, 'TA': 3, 'Gd': 4, 'Ex': 5} )
 
-        new_dfs[run]['BsmtExposure'] = cat_df['BsmtExposure'].replace( {'None': 0, 'No': 1, 'Mn': 2, 'Av': 3, 'Gd': 4} )
-        new_dfs[run]['BsmtFinType1'] = cat_df['BsmtFinType1'].replace( {'None': 1, 'Unf': 1, 'LwQ': 2,'Rec': 3, 'BLQ': 4, 'ALQ': 5, 'GLQ': 6} )
-        new_dfs[run]['BsmtFinType2'] = cat_df['BsmtFinType2'].replace( {'None': 1, 'Unf': 1, 'LwQ': 2,'Rec': 3, 'BLQ': 4, 'ALQ': 5, 'GLQ': 6} )
+        new_dfs[run]['BsmtExposure'] = cat_df['BsmtExposure'].replace( {'None': 0, 'No': 1, 'Mn': 2, 'Av': 3, 'Gd': 4} ).fillna(0).astype(int)
+        new_dfs[run]['BsmtFinType1'] = cat_df['BsmtFinType1'].replace( {'None': 1, 'Unf': 1, 'LwQ': 2,'Rec': 3, 
+                                                                        'BLQ': 4, 'ALQ': 5, 'GLQ': 6} ).fillna(0).astype(int)
+        new_dfs[run]['BsmtFinType2'] = cat_df['BsmtFinType2'].replace( {'None': 1, 'Unf': 1, 'LwQ': 2,'Rec': 3, 
+                                                                        'BLQ': 4, 'ALQ': 5, 'GLQ': 6} ).fillna(0).astype(int)
         new_dfs[run]['Functional'  ] = cat_df['Functional'  ].replace( {'None': 0, 'Sal': 1, 'Sev': 2, 'Maj2': 3, 'Maj1': 4, 
-                                                                  'Mod': 5, 'Min2': 6, 'Min1': 7, 'Typ': 8} )
-        new_dfs[run]['GarageFinish'] = cat_df['GarageFinish'].replace( {'None': 1,'Unf': 1, 'RFn': 1, 'Fin': 2} )
-        new_dfs[run]['Fence'       ] = cat_df['Fence'       ].replace( {'None': 1, 'MnWw': 1, 'GdWo': 1, 'MnPrv': 2, 'GdPrv': 4} )
-        new_dfs[run]['Street'      ] = cat_df['Street'      ].replace( {'Pave': 1, 'Grvl':2 } )
-        new_dfs[run]['Alley'       ] = cat_df['Alley'       ].replace( {'None': 0, 'Pave':1, 'Grvl':2} )
+                                                                  'Mod': 5, 'Min2': 6, 'Min1': 7, 'Typ': 8} ).fillna(0).astype(int)
+        new_dfs[run]['GarageFinish'] = cat_df['GarageFinish'].replace( {'None': 0,'Unf': 0, 'RFn': 0, 'Fin': 1} ).fillna(0).astype(int)
+        new_dfs[run]['Fence'       ] = cat_df['Fence'       ].replace( {'None': 1, 'MnWw': 1, 'GdWo': 1, 
+                                                                        'MnPrv': 2, 'GdPrv': 4} ).fillna(0).astype(int)
+        new_dfs[run]['Street'      ] = cat_df['Street'      ].replace( {'Pave': 0, 'Grvl':1 } )
+        new_dfs[run]['Alley'       ] = cat_df['Alley'       ].replace( {'None': 0, 'Pave':1, 'Grvl':2} ).fillna(0)
         new_dfs[run]['Foundation'  ] = cat_df['Foundation'  ].replace( {'Wood': 0, 'BrkTil':0, 'CBlock':1, 'PConc':1, 'Slab':1, 'Stone':2} )       
         new_dfs[run]['LotConfig'   ] = cat_df['LotConfig'   ].replace( {'Corner':0,'CulDSac':1,'FR2':2,'FR3':3,'Inside':4} )       
+        new_dfs[run]['GarageYrBlt' ] = num_df['GarageYrBlt' ].replace( {0:num_df['GarageYrBlt' ].mode()[0], 
+                                                                        0.0:num_df['GarageYrBlt' ].mode()[0]} )
         
         manual_cols = ['BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','GarageFinish','Fence','NewerDwelling']
         binarize    = ['LotShape','LandContour','LandSlope','Electrical','GarageType','PavedDrive','MiscFeature']
@@ -642,7 +645,9 @@ def run_tan( train_df, test_df ):
         new_dfs[run]['MiscFeature'] = (cat_df['MiscFeature'] == 'Shed'  ) * 1    
 
 
-        new_dfs[run]['NewerDwelling'] =  cat_df['MSZoning'    ].replace( {'RL':0, 'RM':1, 'C (all)':2, 'FV':3, 'RH':4} )
+        new_dfs[run]['NewerDwelling'] =  cat_df['MSZoning'    ].fillna( cat_df['MSZoning'].mode()[0] ).replace( 
+                                                                    {'RL':0, 'RM':1, 'C (all)':2, 'FV':3, 'RH':4} ).astype(int)
+        
         new_dfs[run]['HasWoodDeck']   = (num_df['WoodDeckSF'  ] > 0) * 1
         new_dfs[run]['Has2ndFlr']     = (num_df['2ndFlrSF'    ] > 0) * 1
         new_dfs[run]['HasMasVnr']     = (num_df['MasVnrArea'  ] > 0) * 1
@@ -674,65 +679,97 @@ def run_tan( train_df, test_df ):
         new_dfs[run]['TimeSinceSold']    =             2010 - num_df['YrSold']
         new_dfs[run]['YearSinceRemodel'] = num_df['YrSold'] - num_df['YearRemodAdd']
         
-        # Already binary
-        binary_class = ['GarageFinish','LotShape','LandContour','LandSlope','Electrical','GarageType','PavedDrive',
-                        'MiscFeature','HasWoodDeck','Has2ndFlr','HasMasVnr','Remodeled','RecentRemodel','NewHouse',
-                        'Has2ndFlrSF','HasMasVnrArea','HasWoodDeckSF','HasOpenPorchSF','HasEnclosedPorch',
-                        'Has3SsnPorch','HasScreenPorch','HighSeason','PartialPlan']
-        # Need to make binary
-        to_bin_class = ['BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','Fence','NewerDwelling','NeighBin','HeatingScale','MSSubClass']
         
-        new_dfs[run]['NBath'] = num_df['BsmtFullBath'] + num_df['BsmtHalfBath']*0.5 + num_df['FullBath'] + num_df['HalfBath']*0.5
+        new_dfs[run]['NBath'] = num_df['BsmtFullBath'].fillna(0) + num_df['BsmtHalfBath'].fillna(0)*0.5 + num_df['FullBath'].fillna(0) + num_df['HalfBath'].fillna(0)*0.5
                 
         run = run + 1
 
-    train_df = new_dfs[1].join( train_df['SalePrice'], how='inner' ).copy()#train_df.join( new_dfs[0], how='inner' )
-    test_df  = new_dfs[1].copy()# test_df.join( new_dfs[1], how='inner' )
-
     
     # Set up some binary classifications
+    # Already binary
+    binary_class = ['GarageFinish','LotShape','LandContour','LandSlope','Electrical','GarageType','PavedDrive',
+                    'MiscFeature','HasWoodDeck','Has2ndFlr','HasMasVnr','Remodeled','RecentRemodel','NewHouse',
+                    'Has2ndFlrSF','HasMasVnrArea','HasWoodDeckSF','HasOpenPorchSF','HasEnclosedPorch',
+                    'Has3SsnPorch','HasScreenPorch','HighSeason','PartialPlan']
     
-    to_bin_class = ['BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','Fence','NewerDwelling','NeighBin','HeatingScale','MSSubClass',
-                    'LotConfig','Alley']
+    to_bin_class = ['BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','Fence','NewerDwelling','NeighBin','HeatingScale',
+                    'LotConfig','Alley','Foundation','MSSubClass']
     
-    train_df.join( binary_classification( train_df.ix[:,to_bin_class] ), how='inner' )
-    test_df .join( binary_classification(  test_df.ix[:,to_bin_class] ), how='inner' )
-
-    drop_list = ['MSZoning','Utilities','Condition1','Condition2','HeatingQC','ExterQual', 'ExterCond', 'GarageQual', 
+    drop_list = ['Id','MSZoning','Utilities','Condition1','Condition2','HeatingQC','ExterQual', 'ExterCond', 'GarageQual', 
                  'GarageCond', 'FireplaceQu', 'KitchenQual', 'HeatingQC', 'BsmtQual','RoofStyle','RoofMatl',
                  'Exterior1st','Exterior2nd','MasVnrType','BsmtCond','Heating','CentralAir','PoolQC',
-                 'SaleType','SaleCondition','LotConfig',
+                 'SaleType','SaleCondition','LotConfig','Foundation','Alley',
                  #ARE WE SURE ^ ?
-                 'BldgType','HouseStyle','Neighborhood'
+                 'BldgType','HouseStyle','Neighborhood',
+                 #Bathrooms
+                 'BsmtFullBath','BsmtHalfBath','FullBath','HalfBath',
+                 'BsmtExposure','BsmtFinType1','BsmtFinType2','Functional','Fence','NewerDwelling','NeighBin','HeatingScale',
+                 # From continuous
+                 '3SsnPorch','LowQualFinSF','MSSubClass', 'PoolArea','MiscVal','BsmtFinSF2','ScreenPorch','MoSold'
                 ]
     
-    train_df = train_df.drop( drop_list, axis = 1 )
-    test_df  =  test_df.drop( drop_list, axis = 1 )
+    big_df = new_dfs[0].append( new_dfs[1], ignore_index=True).copy()
+    
+    
+    big_df = big_df.join( binary_classification( big_df.ix[:,to_bin_class] ), how='inner' )
+    big_df = big_df.drop( drop_list, axis = 1 )
 
-    
-#    train_df = train_df.drop( to_bin_class, axis = 1 )
-#    test_df  =  test_df.drop( to_bin_class, axis = 1 )
-    
+    train_df = big_df[:1456].copy()
+    test_df  = big_df[1456:].copy()
+
     train_df['SalePrice'] = sp
     
     return train_df, test_df
     
     
+# From the tanner kernel
+def norm_tan( train_df, test_df ):
+    
+    #none
+    lin_norm = ['Age', 'BedroomAbvGr', 'Fireplaces', 'GarageCars', 'GarageYrBlt', 'KitchenAbvGr', 'NBath', 'LotArea', 
+                'OverallCond', 'OverallQual', 'TimeSinceSold', 'TotRmsAbvGrd', 'YearBuilt', 'YearRemodAdd', 'YearSinceRemodel', 'YrSold']
+    #l +1
+    log_norm = ['1stFlrSF','AreaInside','GrLivArea','LotFrontage']
+    log_norm_fix_lower_lim = ['2ndFlrSF','BsmtFinSF1','BsmtUnfSF','EnclosedPorch','GarageArea','MasVnrArea',
+                              'OpenPorchSF','TotalBsmtSF','WoodDeckSF']
     
     
+    comb_df = train_df.drop( 'SalePrice', axis=1).append( test_df, ignore_index=True).copy()
+
+    # List containing continuous variables
+    comb_df.ix[:,log_norm              ] = np.log10( comb_df[log_norm              ] + 1 )
+    comb_df.ix[:,log_norm_fix_lower_lim] = np.log10( comb_df[log_norm_fix_lower_lim] + 1 )
     
     
+    # All log_norm do sigma normalization
+    # '2ndFlrSF'      2.3-3.2
+    # 'BsmtFinSF1'    1.2-3.4
+    # 'BsmtUnfSF'     1.6-3.3
+    # 'EnclosedPorch' 1.2-2.8
+    # 'GarageArea'    2.1-3.1
+    # 'MasVnrArea'    1.2-3.1
+    # 'OpenPorchSF'   1.0-2.6
+    # 'TotalBsmtSF'   2.2-3.5
+    # 'WoodDeckSF'    1.1-3.1
+    lower_norm_lim = [2.3,1.2,1.6,1.3,2.1,1.2,1.0,2.3,1.1]
+    upper_norm_lim = [3.2,3.4,3.3,2.8,3.1,3.0,2.6,3.4,3.0]
+
+    for col in lin_norm:
+        comb_df[col] = normalize_column( comb_df, col )
+    
+    for col in log_norm:
+        comb_df[col] = normalize_column_sigma( comb_df, col, n_sigma=3.0 )
+
+    for i in range( 0, len(log_norm_fix_lower_lim)):
+        col          = log_norm_fix_lower_lim[i]
+        comb_df[col] = normalize_column( comb_df, col, maxVal = upper_norm_lim[i], minVal = lower_norm_lim[i] )
     
     
+    ret_train = comb_df[:train_df.shape[0]].copy()
+    ret_test  = comb_df[train_df.shape[0]:].copy()
     
+    ret_train['SalePrice'] = np.log10(train_df['SalePrice']).copy()
     
-    
-    
-    
-    
-    
-    
-    
-    
+    return ret_train, ret_test
     
     
