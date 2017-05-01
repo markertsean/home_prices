@@ -334,6 +334,7 @@ def run_kfold( clf, train_x_df, train_y_df, nf=10 ):
         outcomes.append(accuracy)
         print("Fold {0} accuracy: {1}".format(fold, accuracy))
         
+    clf.fit( train_x_df, train_y_df )    
     mean_outcome = np.mean(outcomes)
     print("Mean Accuracy: {0} +/- {1}".format(mean_outcome,np.std(outcomes)))
 
@@ -352,9 +353,9 @@ def run_kfold_arr( clf, train_x_df, train_y_df, nf=10 ):
         
         # Generate training and testing data from input sets
         x_train = train_x_df[train_index]
-        y_train = train_y_df.iloc[train_index]
+        y_train = train_y_df[train_index]
         x_test  = train_x_df[test_index]
-        y_test  = train_y_df.iloc[test_index]
+        y_test  = train_y_df[test_index]
         
         
         # Foooooooo
@@ -567,8 +568,10 @@ def run_tan( train_df, test_df ):
     
     
         # Put in garage build the home year if missing
-        new_dfs[run]['GarageYrBlt'] = df['GarageYrBlt'].fillna( df['YearBuilt'] )
-    
+        new_dfs[run]['YearBuilt'  ] = df['YearBuilt'  ].fillna( df['YearBuilt'].mode()[0] )
+        new_dfs[run]['GarageYrBlt'] = df['GarageYrBlt'].fillna( new_dfs[0]['YearBuilt'] )
+        new_dfs[run]['GarageYrBlt'] = new_dfs[run]['GarageYrBlt'].fillna( new_dfs[run]['GarageYrBlt'].mode()[0] )
+        
         # Take care of garage nans
         for col in g_cols:
             if ( df[col].dtype == float ):
@@ -710,12 +713,15 @@ def run_tan( train_df, test_df ):
     
     big_df = new_dfs[0].append( new_dfs[1], ignore_index=True).copy()
     
+    big_df['GarageYrBlt'] = big_df['GarageYrBlt'].fillna( big_df['YearBuilt'] )
     
     big_df = big_df.join( binary_classification( big_df.ix[:,to_bin_class] ), how='inner' )
     big_df = big_df.drop( drop_list, axis = 1 )
 
-    train_df = big_df[:1456].copy()
-    test_df  = big_df[1456:].copy()
+    nn = train_df.shape[0]
+    
+    train_df = big_df[:nn].copy()
+    test_df  = big_df[nn:].copy()
 
     train_df['SalePrice'] = sp
     
@@ -767,6 +773,7 @@ def norm_tan( train_df, test_df ):
     
     ret_train = comb_df[:train_df.shape[0]].copy()
     ret_test  = comb_df[train_df.shape[0]:].copy()
+    
     
     ret_train['SalePrice'] = np.log10(train_df['SalePrice']).copy()
     
